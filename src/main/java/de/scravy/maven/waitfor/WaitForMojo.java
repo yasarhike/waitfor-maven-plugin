@@ -64,6 +64,7 @@ public class WaitForMojo extends AbstractMojo {
   protected boolean skip;
 
   public Check[] getChecks() {
+    
     return checks;
   }
 
@@ -72,6 +73,7 @@ public class WaitForMojo extends AbstractMojo {
   }
 
   public int getTimeoutSeconds() {
+    
     return timeoutSeconds;
   }
 
@@ -80,11 +82,13 @@ public class WaitForMojo extends AbstractMojo {
   }
 
   private int timeoutInMillis() {
+    
     return timeoutSeconds * 1000;
   }
 
   private RequestConfig requestConfig() {
     final int timeoutInMillis = timeoutInMillis();
+    
     return RequestConfig.custom()
       .setConnectionRequestTimeout(timeoutInMillis)
       .setSocketTimeout(timeoutInMillis)
@@ -121,20 +125,24 @@ public class WaitForMojo extends AbstractMojo {
       case HEAD:
         final HttpHead httpHead = new HttpHead(uri);
         httpHead.setConfig(requestConfig());
+        
         return httpHead;
       case GET:
         final HttpGet httpGet = new HttpGet(uri);
         httpGet.setConfig(requestConfig());
+        
         return httpGet;
       case POST:
         final HttpPost httpPost = new HttpPost(uri);
         httpPost.setEntity(new StringEntity(Optional.ofNullable(check.getRequestBody()).orElse("")));
         httpPost.setConfig(requestConfig());
+        
         return httpPost;
       case PUT:
         final HttpPut httpPut = new HttpPut(uri);
         httpPut.setEntity(new StringEntity(Optional.ofNullable(check.getRequestBody()).orElse("")));
         httpPut.setConfig(requestConfig());
+        
         return httpPut;
       default:
         throw new MojoFailureException("Unknown request method " + check.getMethod());
@@ -147,8 +155,9 @@ public class WaitForMojo extends AbstractMojo {
     if (insecure) {
       try {
         final SSLContextBuilder builder = new SSLContextBuilder();
-        builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
         final SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build());
+        
+        builder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
         clientBuilder.setSSLSocketFactory(sslsf);
       } catch (NoSuchAlgorithmException|KeyStoreException|KeyManagementException e) {
         warn("Can not generate the ssl context for self signed certificates. " + e.getMessage());
@@ -180,6 +189,7 @@ public class WaitForMojo extends AbstractMojo {
     try (final CloseableHttpClient httpClient = getHttpClient()) {
       final boolean[] results = new boolean[this.checks.length];
       final long startedAt = System.nanoTime();
+      
       for (int i = 0; ; i += 1) {
         if (Seq.ofGenerator(ix -> results[ix], results.length).forAll(x -> x)) {
           alwaysInfo("All checks returned successfully.");
@@ -187,7 +197,9 @@ public class WaitForMojo extends AbstractMojo {
         } else {
           info("Not all checks passed. Trying again...");
         }
+        
         final Duration elapsed = Duration.of(System.nanoTime() - startedAt, ChronoUnit.NANOS);
+        
         if (elapsed.toMillis() > timeoutInMillis()) {
           throw new MojoFailureException("Timed out after " + elapsed.toMillis() + "ms");
         }
@@ -197,6 +209,7 @@ public class WaitForMojo extends AbstractMojo {
         for (int index = 0; index < checks.length; index += 1) {
           final Check check = checks[index];
           final URI uri;
+          
           try {
             uri = check.getUrl().toURI();
           } catch (final URISyntaxException exc) {
@@ -205,14 +218,17 @@ public class WaitForMojo extends AbstractMojo {
           if (results[index]) {
             continue;
           }
+          
           info("Checking " + uri + "...");
           final HttpUriRequest httpUriRequest = httpUriRequest(check, uri);
+          
           for (final Header header : Optional.ofNullable(check.getHeaders()).orElse(new Header[0])) {
             httpUriRequest.setHeader(header.getName(), header.getValue());
           }
           try (final CloseableHttpResponse httpResponse = httpClient.execute(httpUriRequest)) {
             final int statusCode = httpResponse.getStatusLine().getStatusCode();
             final String response = EntityUtils.toString(httpResponse.getEntity());
+            
             if (chatty) {
               getLog().info(uri + " responded with: " + response);
             }
@@ -235,13 +251,17 @@ public class WaitForMojo extends AbstractMojo {
 
   private boolean checkResponse(final URI uri, final int statusCode, final String response, final Check check) {
     final int expectedStatusCode = check.getStatusCode() == 0 ? 200 : check.getStatusCode();
+    
     if (statusCode != expectedStatusCode) {
       info(uri + " returned " + statusCode + " instead of expected " + expectedStatusCode);
+      
       return false;
     }
     final String expectedResponse = check.getExpectedResponseBody();
+    
     if ((expectedResponse != null) && (!expectedResponse.equals(response))) {
       info(uri + " returned " + response + " instead of expected response " + expectedResponse);
+      
       return false;
     }
     return true;
